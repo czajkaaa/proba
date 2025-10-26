@@ -9,3 +9,4 @@ janek <- c("essa")
 
 wiktor ssie
 # essa
+hejka tu lenka
