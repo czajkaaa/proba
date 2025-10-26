@@ -1,4 +1,8 @@
 # proba
-Ale essowy projekt 
-Próba pracy w zespole
 
+
+piotrek <- c(1, 2, 3)
+
+lena <- matrix(1:9, nrow = 3, byrow = TRUE)
+
+# essa
