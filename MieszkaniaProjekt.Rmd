@@ -1,0 +1,7 @@
+---
+title: "MieszkaniaProjekt"
+output: html_document
+---
+
+View(apartments_rent_pl_2024_06)
+
