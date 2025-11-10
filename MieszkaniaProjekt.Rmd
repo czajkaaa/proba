@@ -31,3 +31,9 @@ Note that the `echo = FALSE` parameter was added to the code chunk to prevent pr
 
 dane <- apartments_rent_pl_2024_06
 View(dane)
+
+install.packages("mice")
+install.packages("devtools")
+devtools::install_github(repo = "amices/mice")
+library(mice, warn.conflicts = FALSE)
+
