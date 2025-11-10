@@ -34,6 +34,7 @@ View(dane)
 
 install.packages("mice")
 install.packages("devtools")
-devtools::install_github(repo = "amices/mice")
-library(mice, warn.conflicts = FALSE)
+
+
+md.pattern(nhanes)
 
