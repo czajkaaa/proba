@@ -33,8 +33,14 @@ dane <- apartments_rent_pl_2024_06
 View(dane)
 
 install.packages("mice")
-install.packages("devtools")
+library(mice, warn.conflicts = FALSE)
 
 
-md.pattern(nhanes)
+
+md.pattern(dane)
+
+library(dplyr)
+dane <- dane %>% select(-id)
+
+View(dane)
 
