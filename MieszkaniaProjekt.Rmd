@@ -22,52 +22,38 @@ summary(cars)
 ## Including Plots
 
 You can also embed plots, for example:
-
+#NASZE KODY
 ```{r pressure, echo=FALSE}
-plot(pressure)
+dane <- apartments_rent_pl_2024_06
+
+library(mice, warn.conflicts = FALSE)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-
-dane <- apartments_rent_pl_2024_06
-View(dane)
-
-install.packages("mice")
-library(mice, warn.conflicts = FALSE)
 
 
 
+```{r}
 md.pattern(dane)
 
 library(dplyr)
 dane <- dane %>% select(-id)
 
-View(dane)
-
 imputed <- mice(dane, m = 5, method = 'pmm', seed = 123)
 completed_data <- complete(imputed, 1)
 View(completed_data)
 
-color <-  c("red", "green", "blue", "blue", "red")
-df    <-  data.frame(color)
-
-df$color <-  as.integer(factor(df$color))
-
-dane$type <- as.integer(factor(dane$type))
-typetypedane$type, m=5, maxit=50, meth=c("polr", "", "", ""), seed=500)
-
-completed_data <- complete(imputed, 1)
-View(completed_data)
-
-
-dane$buildingMaterial <- as.integer(factor(dane$buildingMaterial))
-imputed <- mice(dane, m = 5, method = 'lda', seed = 123)
-
-completed_data <- complete(imputed, 1)
-View(completed_data)
-
-
-
 md.pattern(completed_data)
+
+
+```
+
+
+```{r}
+#Stripplot for imputed data
+stripplot(imputed, pch = 20, cex = 1.2)
+```
+
+#ggmice 
+
 
 
