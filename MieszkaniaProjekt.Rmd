@@ -51,6 +51,7 @@ md.pattern(completed_data)
 ```{r}
 #Stripplot for imputed data
 stripplot(imputed, pch = 20, cex = 1.2)
+
 ```
 
 #ggmice 
