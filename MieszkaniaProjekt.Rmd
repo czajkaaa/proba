@@ -54,7 +54,7 @@ df    <-  data.frame(color)
 df$color <-  as.integer(factor(df$color))
 
 dane$type <- as.integer(factor(dane$type))
-$typetypedane$type, m=5, maxit=50, meth=c("polr", "", "", ""), seed=500)
+typetypedane$type, m=5, maxit=50, meth=c("polr", "", "", ""), seed=500)
 
 completed_data <- complete(imputed, 1)
 View(completed_data)
@@ -65,4 +65,9 @@ imputed <- mice(dane, m = 5, method = 'lda', seed = 123)
 
 completed_data <- complete(imputed, 1)
 View(completed_data)
+
+
+
+md.pattern(completed_data)
+
 
