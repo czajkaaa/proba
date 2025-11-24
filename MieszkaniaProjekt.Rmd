@@ -59,7 +59,7 @@ stripplot(imputed, pch = 20, cex = 1.2)
 ```{r}
 install.packages("naniar")
 library(naniar)
-gg_miss_fct(x = completed_data, fct = type)
+gg_miss_fct(x = completed_data, fct = city)
 ```
 
 
@@ -74,5 +74,118 @@ completed_data_unique <- completed_data %>%
 # Sprawdzenie, czy duplikaty zostały usunięte
 sum(duplicated(completed_data_unique))
 # Powinno zwrócić 0
+```
+
+```{r}
+#wizualizacja danych
+install.packages("ggplot2")
+library(ggplot2)
+ggplot(completed_data_unique, aes(x = squareMeters, y = price)) +
+  geom_point() +
+  labs(title = "Zależność między powierzchnią a ceną",
+       x = "Powierzchnia (m²)",
+       y = "Cena wynajmu (PLN)") +
+  theme_minimal()
+```
+```{r}
+library(ggplot2)
+
+# WIZUALIZACJA 1: Wykres punktowy z kolorem dla każdego miasta
+ggplot(data = completed_data_unique, 
+       aes(x = poiCount, y = price, color = city)) + 
+  
+  # Punkty (obserwacje)
+  geom_point(alpha = 0.6) + 
+  
+  # Opcjonalnie: Linia regresji dla trendu ogólnego (bez podziału na miasta)
+  geom_smooth(method = "lm", se = FALSE, color = "gray20", linetype = "dashed") + 
+  
+  # Linie trendu dla każdego miasta
+  geom_smooth(method = "lm", se = FALSE) +
+  
+  # Etykiety i tytuł
+  labs(title = "Zależność liczby punktów POI i ceny, z podziałem na miasta",
+       x = "Liczba punktów POI w pobliżu (poiCount)",
+       y = "Cena (price)",
+       color = "Miasto") +
+  
+  # Użycie minimalistycznego motywu
+  theme_minimal()
+```
+
+```{r}
+library(ggplot2)
+
+# WIZUALIZACJA 2: Wykresy panelowe (Faceting)
+ggplot(data = completed_data_unique, 
+       aes(x = poiCount, y = price)) + 
+  
+  # Punkty danych (obserwacje)
+  geom_point(alpha = 0.6) +
+  
+  # Dodanie linii trendu (dla każdego panelu z osobna)
+  geom_smooth(method = "lm", color = "blue") +
+  
+  # Podział wykresu na panele według zmiennej 'city'
+  facet_wrap(~ city, scales = "free") + 
+  
+  # Etykiety i tytuł
+  labs(title = "Zależność POI i ceny w poszczególnych miastach",
+       x = "Liczba punktów POI w pobliżu (poiCount)",
+       y = "Cena (price)") +
+  
+  # Użycie minimalistycznego motywu
+  theme_minimal()
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+install.packages("tidyr")
+library(tidyr)
+
+
+# 1. Agregacja danych (obliczanie średniej ceny dla każdego MIASTA)
+dane_avg_city_price <- completed_data_unique %>%
+  # Usuń wiersze, gdzie price lub city są NA
+  drop_na(city, price) %>% 
+  
+  # Grupuj według MIASTA
+  group_by(city) %>%
+  
+  # Oblicz średnią cenę dla każdego miasta
+  summarise(
+    avg_price = mean(price, na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+library(ggplot2)
+# Pakiety dplyr i tidyr są wymagane do utworzenia dane_avg_city_price
+
+# 2. Wizualizacja (wykres słupkowy z gradientem)
+ggplot(dane_avg_city_price, 
+       aes(x = city, y = avg_price, fill = avg_price)) + # 1. Ustawienie 'fill'
+  
+  # Rysowanie słupków
+  geom_col() +
+  
+  # 2. Dodanie skali gradientowej
+  scale_fill_gradient(low = "lightblue", high = "darkblue", # Możesz wybrać dowolne kolory
+                      name = "Średnia cena") + # Tytuł legendy
+  
+  # Opcjonalnie: Etykiety nad słupkami
+  geom_text(aes(label = format(round(avg_price, 0), big.mark = " ")), 
+            vjust = -0.5, 
+            size = 4, 
+            color = "gray30") +
+  
+  # Etykiety i tytuł
+  labs(title = "Średnia cena nieruchomości według miasta (z gradientem)",
+       x = "Miasto",
+       y = "Średnia cena (PLN)") +
+  
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
 ```
 
