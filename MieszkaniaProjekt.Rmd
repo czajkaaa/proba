@@ -56,5 +56,23 @@ stripplot(imputed, pch = 20, cex = 1.2)
 
 #ggmice 
 
+```{r}
+install.packages("naniar")
+library(naniar)
+gg_miss_fct(x = completed_data, fct = type)
+```
 
+
+```{r}
+# Upewnij się, że masz załadowany pakiet dplyr
+library(dplyr)
+
+# Usuwa duplikaty
+completed_data_unique <- completed_data %>%
+  distinct()
+
+# Sprawdzenie, czy duplikaty zostały usunięte
+sum(duplicated(completed_data_unique))
+# Powinno zwrócić 0
+```
 
