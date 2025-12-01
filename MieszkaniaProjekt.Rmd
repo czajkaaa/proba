@@ -15,11 +15,27 @@ This is an R Markdown format used for publishing markdown documents to GitHub. W
 
 You can include R code in the document as follows:
 
-```{r cars}
-summary(cars)
-```
+
 
 ## Including Plots
+```{r}
+library(qwraps2)
+library(arsenal)
+library(e1071)
+library(haven)
+library(papeR)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(kableExtra)
+library(summarytools)
+library(classInt)
+library(pastecs)
+library(desctable)
+library(frequency)
+library(corrplot)
+library(ggpubr)
+```
 
 You can also embed plots, for example:
 #NASZE KODY
@@ -185,6 +201,149 @@ ggplot(dane_avg_city_price,
   
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+mieszkania <- completed_data_unique
+```
+Jak widać nie wszystkie formaty naszych zmiennych są dostosowane. Musimy przygotować odpowiednie formaty naszych zmiennych zgodnie z ich skalą pomiarową i przyszłym zastosowaniem.
+```{r wrangling, include=TRUE}
+mieszkania$city<-as.factor(mieszkania$city)
+mieszkania$type<-as.factor(mieszkania$building)
+mieszkania$rooms<-factor(mieszkania$rooms,ordered=TRUE)
+attach(mieszkania)
+mieszkania$price<-as.numeric(mieszkania$price)
 
 ```
 
+W pierwszym etapie naszej analizy pogrupujemy nasze dane w postaci prostej tabeli częstości.
+
+Najpierw przyjrzyjmy się rozkładowi cen mieszkań w naszej próbie i zweryfikujmy poprawność tabelaryczną za pomocą miary TAI:
+
+```{r table, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+library(frequency)
+etykiety<-c("0-2500 PLN", "2500-5000 PLN","5000-7500 PLN","7500-10000 PLN","10000-12500 PLN","12500-15000 PLN","15000-17500 PLN", "17500-20000 PLN")
+limits<-cut(mieszkania$price,seq(0,20000,by=2500),labels=etykiety)
+tabela1<-freq(limits,type="html")
+
+
+#zrób histogram obrazujący price podzielony na 10 kategorii
+hist(mieszkania$price, breaks=10, main="Histogram cen mieszkań", xlab="Cena (PLN)", col="lightblue", border="black")
+
+```
+
+```{r tai, echo=FALSE}
+kbl(tabela1,caption = "Mieszkania - ceny w PLN") %>%
+    kable_material(c("striped", "hover"))
+tab1<-classIntervals(mieszkania$price,n=10,style="fixed",fixedBreaks=seq(0,20000,by=2500))
+#jenks.tests(tab1)
+```
+
+```{r histogram, echo=FALSE}
+#usuń brakujące wartości z type
+type<-mieszkania$type[!is.na(mieszkania$type)]
+# Zastosowanie reguły Freedman/Diaconis s.120 ("Algorytm, który automatycznie wybiera szerokość i położenie bloków w oparciu o wielkość próby i rozrzut danych" http://www.mathworks.com/help/toolbox/stats/bqucg6n.html)
+hist(price, breaks="FD", col="green", probability = TRUE,
+     main="Ceny")
+lines(density(price[type=="blockOfFlats"]),col=2)
+lines(density(price[type=="apartmentBuilding"]),col=3)
+lines(density(price[type=="tenement"]),col=4)
+legend("topright", legend=c("blockOfFlats", "apartamentBuilding", "tenement"),
+       col=c(2,3,4), lty=1:2, horiz=FALSE, box.lty=0, cex=0.8)
+
+```
+
+```{r histogram2, echo=TRUE}
+# Density plot of "price"
+#::::::::::::::::::::::::::::::::::::::
+density.p <- ggdensity(mieszkania, x = "price", 
+                       fill = "district", palette = "jco")+
+  stat_overlay_normal_density(color = "red", linetype = "dashed")
+
+# Liczymy statystyki wg typów:
+stable <- desc_statby(mieszkania, measure.var = "price",
+                      grps = "type")
+stable <- stable[, c("type", "length", "mean", "sd")]
+# Wykres, szablon "medium orange":
+stable.p <- ggtexttable(stable, rows = NULL, 
+                        theme = ttheme("mOrange"))
+# Podpisujemy wykres:
+#::::::::::::::::::::::::::::::::::::::
+text <- paste("Ceny mieszkań wg 3 typów ",
+              "Losowa próba 200 mieszkań.",
+               sep = " ")
+text.p <- ggparagraph(text = text, face = "italic", size = 11, color = "black")
+# Aranżujemy wykresy na tym samym panelu:
+#ggarrange(density.p, stable.p, text.p, 
+          #ncol = 1, nrow = 3,
+         # heights = c(1, 0.5, 0.3))
+```
+
+```{r boxplot2, echo=FALSE}
+ggplot(mieszkania, aes(x=type, y=price)) +
+    geom_boxplot(alpha=0.7) +
+    stat_summary(fun="mean", geom="point", shape=20, size=5, color="red", fill="red") +
+ geom_jitter() +
+    facet_grid(~rooms) +
+    scale_fill_brewer(palette="Set1")
+
+```
+
+```{r facet1, echo=FALSE}
+plot1 <- ggplot(mieszkania, aes(price, rooms)) + 
+  geom_abline() +
+  geom_jitter(width = 0.1, height = 0.1) 
+plot1 + facet_wrap(~type)
+```
+
+ mean(price)
+    median(price)
+    sd(price) #standard deviation
+    var(price) #variance
+    coeff_var<-sd(price)/mean(price) #coefficient of variability %
+    coeff_var
+    IQR(price)# difference between quartiles =Q3-Q1 
+    sx<-IQR(price)/2  #interquartile deviation
+    coeff_varx<-sx/median(price) #IQR coefficient of variability %
+    coeff_varx
+    min(price)
+    max(price)
+    quantile(price,probs=c(0,0.1,0.25,0.5,0.75,0.95,1),na.rm=TRUE)
+    
+```{r kable_report, echo=FALSE}
+mieszkania_list <- split(mieszkania$price, mieszkania$rooms)
+inline_plot <- data.frame(rooms = c(1, 2, 3, 4), boxplot = "", histogram = "", line1 = "", line2 = "", points1 = "")
+  inline_plot %>%
+  kbl(booktabs = TRUE) %>%
+  kable_paper(full_width = FALSE) %>%
+  column_spec(2, image = spec_boxplot(mieszkania_list)) %>%
+  column_spec(3, image = spec_hist(mieszkania_list)) %>%
+  column_spec(4, image = spec_plot(mieszkania_list, same_lim = TRUE)) %>%
+  column_spec(5, image = spec_plot(mieszkania_list, same_lim = FALSE)) %>%
+  column_spec(6, image = spec_plot(mieszkania_list, type = "p"))
+
+```
+
+```{r kable_report2, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+library(psych)
+raport <-
+  list("Cena w PLN" =
+       list("Min"= ~ min(price),
+            "Max"= ~ max(price),
+            "Kwartyl dolny"= ~ quantile(price,0.25),
+            "Mediana"= ~ round(median(price),2),
+            "Kwartyl górny"= ~ quantile(price,0.75),
+            "Średnia"= ~ round(mean(price),2),
+            "Odch. std."= ~ round(sd(price),2),
+            "IQR"= ~ round(iqr(price),2),
+            "Odchylenie ćwiartkowe"=~round(iqr(price)/2,2),
+            "Odch. std. w %"=~round((sd(price)/mean(price)),2),
+            "Odch. ćwiartkowe w %"=~round((iqr(price)/median(price)),2),
+            "Skośność"=~round(skew(price),2),
+            "Kurtoza"=~round(kurtosi(price),2)
+            ))
+tabela<-summary_table(mieszkania, summaries = raport, by = c("rooms"))
+
+knitr::kable(tabela,
+  digits = 3,
+  align = "lcccc",
+  caption="Tabela 1. Mieszkania ceny w PLN wg liczby pokoi.",
+  col.names = c("Statystyka","1 pokój", "2 pokoje", "3 pokoje", "4 pokoje")) 
+```
