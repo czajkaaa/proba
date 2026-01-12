@@ -347,13 +347,22 @@ knitr::kable(tabela,
   caption="Tabela 1. Mieszkania ceny w PLN wg liczby pokoi.",
   col.names = c("Statystyka","1 pokój", "2 pokoje", "3 pokoje", "4 pokoje")) 
 
-install.packages("ggstatsplot")
+
 library(ggstatsplot)
-completed_data %>%
   ggbetweenstats(
-    x = squareMeters,
+    completed_data_unique,
+    x = hasParkingSpace,
     y = price,
     xlab = "Metraż",
     ylab = "Cena",
-    bf.mnessage = FALSE)
+    bf.message = FALSE)
+  
+  
+  ggscatterstats(
+    completed_data_unique,
+    x = squareMeters,
+    y = price,
+    xlab = "Metraż",
+    ylab = "Cena"
+  )
 ```
