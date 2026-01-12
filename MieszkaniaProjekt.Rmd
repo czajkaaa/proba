@@ -346,4 +346,15 @@ knitr::kable(tabela,
   align = "lcccc",
   caption="Tabela 1. Mieszkania ceny w PLN wg liczby pokoi.",
   col.names = c("Statystyka","1 pokój", "2 pokoje", "3 pokoje", "4 pokoje")) 
+
+install.packages("ggstatsplot")
+library(ggstatsplot)
+completed_data_unique %>%
+  filter(year %in% c(2000,2001)) %>%
+  ggbetweenstats(
+    x = year,
+    y = median,
+    xlab = "Rok",
+    ylab = "Mediana ceny domu",
+    bf.mnessage = FALSE
 ```
