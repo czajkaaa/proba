@@ -349,12 +349,11 @@ knitr::kable(tabela,
 
 install.packages("ggstatsplot")
 library(ggstatsplot)
-completed_data_unique %>%
-  filter(year %in% c(2000,2001)) %>%
+completed_data %>%
   ggbetweenstats(
-    x = year,
-    y = median,
-    xlab = "Rok",
-    ylab = "Mediana ceny domu",
-    bf.mnessage = FALSE
+    x = squareMeters,
+    y = price,
+    xlab = "Metraż",
+    ylab = "Cena",
+    bf.mnessage = FALSE)
 ```
