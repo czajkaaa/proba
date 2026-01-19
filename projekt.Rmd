@@ -1,0 +1,70 @@
+---
+title: "Analiza danych - raport końcowy"
+author: "L.Czajkowska, J.Buńkowski, P.Jędrzejewski"
+date: "2026-01-19"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+## ![](pobrane.png)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = FALSE)
+```
+
+## Wprowadzenie
+
+### 1.1 Mieszkania
+
+Rynek nieruchomości to jeden z kluczowych sektorów gospodarki, w którym precyzyjna analiza danych ma bezpośrednie przełożenie na trafność decyzji inwestycyjnych. Ten zestaw danych zapewni Ci doskonały przedsmak pracy analityka rynku mieszkaniowego. Pozwoli zrozumieć, z jakimi wyzwaniami mierzą się rzeczoznawcy i inwestorzy, oraz zbadać, jakie strategie wyceny są najskuteczniejsze.
+
+Dzięki zgromadzonym informacjom dowiesz się, jak na atrakcyjność oferty wpływają zróżnicowane zmienne – od parametrów technicznych (rok budowy, piętro), przez lokalizację geograficzną, aż po dostęp do infrastruktury miejskiej (odległość od centrum, szkół czy przychodni).
+
+Jest to w głównej mierze problem **regresji** (przewidywanie ceny) oraz zaawansowanej **eksploracji danych**. Zbiór składa się z **8845 obserwacji** (wierszy) opisanych za pomocą **27 zmiennych** (kolumn).
+
+### 1.2 Opis bazy danych
+
+Baza składa się z **27 kolumn** (cech) opisujących **8845 ofert** mieszkań. Poniżej znajduje się szczegółowy opis każdej zmiennej:
+
+1.  **city** - miasto, w którym zlokalizowana jest nieruchomość (np. Szczecin).
+2.  **type** - rodzaj budynku (np. blok mieszkalny, apartamentowiec, kamienica).
+3.  **squareMeters** - powierzchnia całkowita mieszkania wyrażona w metrach kwadratowych.
+4.  **rooms** - liczba pokoi w mieszkaniu.
+5.  **floor** - piętro, na którym znajduje się oferowany lokal.
+6.  **floorCount** - całkowita liczba pięter w budynku.
+7.  **buildYear** - rok budowy budynku.
+8.  **latitude** - szerokość geograficzna lokalizacji.
+9.  **longitude** - długość geograficzna lokalizacji.
+10. **centreDistance** - odległość mieszkania od ścisłego centrum miasta (w km).
+11. **poiCount** - liczba punktów użyteczności publicznej (Points of Interest) w najbliższej okolicy.
+12. **schoolDistance** - odległość do najbliższej szkoły.
+13. **clinicDistance** - odległość do najbliższej przychodni/kliniki.
+14. **postOfficeDistance** - odległość do najbliższej placówki pocztowej.
+15. **kindergartenDistance** - odległość do najbliższego przedszkola.
+16. **restaurantDistance** - odległość do najbliższej restauracji.
+17. **collegeDistance** - odległość do najbliższej uczelni wyższej.
+18. **pharmacyDistance** - odległość do najbliższej apteki.
+19. **ownership** - forma własności lokalu (np. własność, spółdzielcze własnościowe).
+20. **buildingMaterial** - materiał, z którego wykonany jest budynek (np. cegła, wielka płyta).
+21. **condition** - stan techniczny mieszkania.
+22. **hasParkingSpace** - informacja, czy do mieszkania przynależy miejsce parkingowe (tak/nie).
+23. **hasBalcony** - informacja, czy mieszkanie posiada balkon (tak/nie).
+24. **hasElevator** - informacja, czy w budynku znajduje się winda (tak/nie).
+25. **hasSecurity** - informacja, czy budynek jest chroniony/monitorowany (tak/nie).
+26. **hasStorageRoom** - informacja, czy do mieszkania przynależy komórka lokatorska (tak/nie).
+27. **price** - cena całkowita nieruchomości (zmienna celu, którą będziemy przewidywać/analizo
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
