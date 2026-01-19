@@ -66,15 +66,12 @@ ramach przygotowania zbioru do analizy przeprowadzono dwa kluczowe procesy:
 
 ### 2.1 Komputacja NA
 
-```{r pressure, include=FALSE}
-dane <- apartments_rent_pl_2024_06
+```{r pressure, echo=FALSE}
+dane <- read.csv("apartments_rent_pl_2024_06.csv")
 
 library(mice, warn.conflicts = FALSE)
 summary(dane)
 ```
 
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
 
 
