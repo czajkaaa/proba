@@ -13,7 +13,7 @@ output:
 knitr::opts_chunk$set(include = FALSE)
 ```
 
-## Wprowadzenie
+## 1. Wprowadzenie
 
 ### 1.1 Mieszkania
 
