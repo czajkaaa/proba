@@ -55,13 +55,23 @@ Baza składa się z **27 kolumn** (cech) opisujących **8845 ofert** mieszkań. 
 26. **hasStorageRoom** - informacja, czy do mieszkania przynależy komórka lokatorska (tak/nie).
 27. **price** - cena całkowita nieruchomości (zmienna celu, którą będziemy przewidywać/analizo
 
-```{r cars}
-summary(cars)
+## 2. Data Wrangling, Cleasing
+
+ramach przygotowania zbioru do analizy przeprowadzono dwa kluczowe procesy:
+
+-   **Data Wrangling** – polega na przekształceniu, reorganizacji i mapowaniu surowych danych do formatu, który jest technicznie gotowy do analizy (np. zmiana typów zmiennych).
+-   **Data Cleansing** (Czyszczenie danych) – to identyfikacja i eliminacja błędów, niespójności oraz brakujących wartości.
+
+**Cel:** Poprawa jakości danych, co jest fundamentem trafnych decyzji biznesowych.
+
+### 2.1 Komputacja NA
+
+```{r pressure, include=FALSE}
+dane <- apartments_rent_pl_2024_06
+
+library(mice, warn.conflicts = FALSE)
+summary(dane)
 ```
-
-## Including Plots
-
-You can also embed plots, for example:
 
 ```{r pressure, echo=FALSE}
 plot(pressure)
