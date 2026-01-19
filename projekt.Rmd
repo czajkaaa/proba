@@ -15,7 +15,7 @@ knitr::opts_chunk$set(include = FALSE)
 
 ## 1. Wprowadzenie
 
-### 1.1 Mieszkania
+### 1.1 Mieszkani
 
 Rynek nieruchomości to jeden z kluczowych sektorów gospodarki, w którym precyzyjna analiza danych ma bezpośrednie przełożenie na trafność decyzji inwestycyjnych. Ten zestaw danych zapewni Ci doskonały przedsmak pracy analityka rynku mieszkaniowego. Pozwoli zrozumieć, z jakimi wyzwaniami mierzą się rzeczoznawcy i inwestorzy, oraz zbadać, jakie strategie wyceny są najskuteczniejsze.
 
