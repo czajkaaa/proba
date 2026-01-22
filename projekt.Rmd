@@ -7,10 +7,8 @@ output:
     highlight: kate
 ---
 
-## ![](pobrane.png)
-
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(include = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ```
 
 ## 1. Wprowadzenie
@@ -66,12 +64,290 @@ ramach przygotowania zbioru do analizy przeprowadzono dwa kluczowe procesy:
 
 ### 2.1 Komputacja NA
 
-```{r pressure, echo=FALSE}
+Celem tego etapu jest identyfikacja, wizualizacja oraz uzupełnienie brakujących danych (NA). Braki danych mogą znacząco wpłynąć na jakość modelu predykcyjnego, dlatego kluczowe jest zrozumienie ich struktury – czy występują losowo, czy też wykazują specyficzne wzorce.
+
+#### Mapa braków danych (Overview)
+
+Na początek wykorzystujemy funkcję `vis_miss` z pakietu `naniar`, aby uzyskać ogólny podgląd kompletności zbioru. Wykres przedstawia "mapę" całego arkusza danych, gdzie czarne paski oznaczają brakujące wartości. Pozwala to na szybką ocenę, które zmienne są najbardziej problematyczne.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+library(dplyr)
+library(mice)
+library(naniar)
+library(ggplot2)
+
 dane <- read.csv("apartments_rent_pl_2024_06.csv")
 
-library(mice, warn.conflicts = FALSE)
-summary(dane)
+vis_miss(dane, warn_large_data = FALSE) +
+  labs(title = "Mapa braków danych w zbiorze (Missingness Map)") +
+  theme(axis.text.x = element_text(angle = 90))
 ```
+
+#### Analiza wzorców (Pattern Analysis)
+Aby dokładniej zrozumieć strukturę braków, stosujemy funkcję md.pattern. Wykres ten (w kolorach niebieskim i różowym) pokazuje kombinacje braków.
+
+Kolor niebieski: Dane dostępne.
+
+Kolor różowy: Brak danych. Wizualizacja ta pomaga odpowiedzieć na pytanie: "Czy jeśli brakuje nam informacji o roku budowy, to zazwyczaj brakuje też informacji o piętrze?".
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
+# invisible() ukrywa tabelę liczbową, zostawiając sam wykres
+invisible(md.pattern(dane, rotate.names = TRUE))
+```
+
+Uzupełnieniem powyższej analizy jest wykres gg_miss_upset (tzw. Upset Plot). Pionowe słupki pokazują liczebność poszczególnych kombinacji brakujących zmiennych. Pozwala to szybko zidentyfikować najczęstsze "scenariusze" braków danych.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+gg_miss_upset(dane, nsets = 10, nintersects = 10)
+```
+
+#### Zależność braków od zmiennych kategorycznych
+Poniższa mapa ciepła (gg_miss_fct) sprawdza, czy występowanie braków danych w zmiennych numerycznych jest skorelowane z obecnością windy w budynku (hasElevator). Pozwala to wykryć systematyczne błędy w zbieraniu danych (np. czy dla budynków bez windy częściej brakuje pewnych informacji).
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+gg_miss_fct(x = dane, fct = hasElevator) + 
+  labs(title = "Rozkład braków danych w podziale na dostępność windy")
+```
+
+#### Imputacja danych (MICE)
+Usuwanie rekordów z brakami danych (tzw. listwise deletion) wiązałoby się ze znaczną utratą informacji, co mogłoby obciążyć model. Zamiast tego zastosowano metodę wielokrotnej imputacji MICE (Multivariate Imputation by Chained Equations) z algorytmem PMM (Predictive Mean Matching).
+
+Metoda ta uzupełnia braki, "pożyczając" wartości od innych, statystycznie podobnych mieszkań w zbiorze, co pozwala zachować naturalny rozkład danych i wariancję.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+# Przygotowanie do imputacji (usunięcie kolumny ID, która nie wnosi wartości analitycznej)
+dane_do_imputacji <- dane %>% select(-id)
+
+# Imputacja algorytmem PMM (printFlag=FALSE ukrywa logi techniczne procesu)
+imputed <- mice(dane_do_imputacji, m = 5, method = 'pmm', seed = 123, printFlag = FALSE)
+completed_data <- complete(imputed, 1)
+```
+#### Weryfikacja po imputacji
+Poniższy wykres potwierdza skuteczność procesu imputacji. Brak widocznych pasków dla zmiennych (lub wartości 0%) oznacza, że zbiór danych jest teraz kompletny i technicznie gotowy do dalszego modelowania.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+gg_miss_var(completed_data, show_pct = TRUE) + 
+  labs(title = "Weryfikacja: Procent braków danych po imputacji")
+```
+
+### 2.2 Struktura danych i statystyki opisowe
+
+W tym kroku przyglądamy się technicznej stronie zbioru danych. Sprawdzamy typy zmiennych (czy liczby są liczbami, a tekst tekstem), rozkład wartości oraz różnorodność kategorii. Pozwala to wyłapać anomalie, takie jak np. literówki w nazwach miast czy nierealistyczne ceny.
+
+#####  Wizualizacja typów danych (Data Types)
+
+Poniższy wykres (`vis_dat`) to "zdjęcie rentgenowskie" naszego zbioru danych. Każda kolumna to zmienna, a kolory oznaczają typ danych (np. liczby całkowite, napisy).
+* Pozwala szybko ocenić, czy R poprawnie zinterpretował dane (np. czy cena nie jest traktowana jako tekst).
+* Szare pola (jeśli są) wskazują miejsca brakujące (NA).
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+library(visdat)
+library(dplyr)
+
+# Upewniamy się, że pracujemy na świeżych danych (lub tych po imputacji - zależy od Ciebie)
+# Tutaj wczytuję oryginał dla demonstracji struktury
+dane_temp <- read.csv("apartments_rent_pl_2024_06.csv") %>% select(-id)
+
+vis_dat(dane_temp) +
+  labs(title = "Struktura typów danych (vis_dat)")
+```
+
+##### Podstawowe statystyki (Summary)
+Funkcja summary() generuje statystyczny opis każdej zmiennej.
+
+Dla zmiennych liczbowych (np. price, squareMeters) widzimy: średnią (Mean), medianę oraz wartości skrajne (Min, Max).
+
+Pozwala to szybko zauważyć błędy, np. mieszkanie o powierzchni 1 m² lub cenie ujemnej.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Wyświetlamy podsumowanie
+summary(dane_temp)
+```
+##### Analiza unikalnych wartości
+Poniższa tabela pokazuje, ile unikalnych wartości ma każda zmienna.
+
+Zmienne o małej liczbie unikalnych wartości (np. 2-5) to zazwyczaj zmienne kategoryczne (np. hasElevator, condition).
+
+Zmienne o dużej liczbie wartości to zmienne ciągłe (np. price, latitude).
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Tworzymy ramkę danych z liczbą unikalnych wartości dla każdej kolumny
+unikalne_wartosci <- data.frame(
+  Zmienna = names(dane_temp),
+  Liczba_Unikalnych = sapply(dane_temp, function(x) length(unique(x)))
+)
+
+# Sortujemy dla czytelności (od najmniejszej liczby kategorii)
+unikalne_wartosci <- unikalne_wartosci[order(unikalne_wartosci$Liczba_Unikalnych), ]
+
+# Wyświetlamy wynik (używamy knitr::kable dla ładniejszej tabeli w HTML)
+knitr::kable(unikalne_wartosci, row.names = FALSE, caption = "Liczba unikalnych wartości w kolumnach")
+```
+##### Proporcje dla kluczowych kategorii
+Poniżej sprawdzamy rozkład (liczność) dla najważniejszych zmiennych opisowych. Pozwala to ocenić, czy mamy do czynienia z niezbalansowanymi danymi (np. czy 99% mieszkań jest w stanie "Premium").
+
+##### Materiał budowy (buildingMaterial):
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
+table(dane_temp$buildingMaterial)
+```
+
+##### Stan mieszkania (condition):
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
+table(dane_temp$condition)
+```
+
+##### Dostępność windy (hasElevator):
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
+# Zamiana wartości logicznych/tekstowych na czytelną tabelę
+table(dane_temp$hasElevator)
+```
+
+### 2.4 Data Cleansing (Transformacja zmiennych)
+
+Na tym etapie przygotowujemy dane do modelowania. Większość algorytmów uczenia maszynowego nie potrafi przetwarzać surowego tekstu (np. "winda: tak", "materiał: cegła"). Konieczna jest konwersja zmiennych kategorycznych (jakościowych) na format numeryczny.
+
+Poniższe wykresy obrazują ten proces transformacji.
+
+#### Wizualizacja przed i po transformacji
+
+Pierwszy wykres pokazuje surowy zbiór danych. Kolor **czerwony/różowy** oznacza zmienne tekstowe (`character`), które są niezrozumiałe dla modelu matematycznego.
+Drugi wykres pokazuje ten sam zbiór po zastosowaniu funkcji czyszczącej. Wszystkie zmienne zostały przekonwertowane na **typy numeryczne (zielony/niebieski)**, co oznacza pełną gotowość do analizy.
+
+### 2.4 Data Cleansing (Transformacja zmiennych)
+
+Na tym etapie przygotowujemy dane do modelowania. Większość algorytmów uczenia maszynowego nie potrafi przetwarzać surowego tekstu (np. "winda: tak", "materiał: cegła"). Konieczna jest konwersja zmiennych kategorycznych (jakościowych) na format numeryczny.
+
+Poniższe wykresy obrazują ten proces transformacji.
+
+#### Wizualizacja przed i po transformacji
+
+Pierwszy wykres pokazuje surowy zbiór danych. Kolor **czerwony/różowy** oznacza zmienne tekstowe (`character`), które są niezrozumiałe dla modelu matematycznego.
+Drugi wykres pokazuje ten sam zbiór po zastosowaniu funkcji czyszczącej. Wszystkie zmienne zostały przekonwertowane na **typy numeryczne (zielony/niebieski)**, co oznacza pełną gotowość do analizy.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=14}
+library(visdat)
+library(dplyr)
+library(gridExtra)
+library(ggplot2) # Potrzebne do funkcji margin()
+
+# 1. Wczytujemy dane
+dane_raw <- read.csv("apartments_rent_pl_2024_06.csv") %>% select(-id)
+
+# 2. Definiujemy wspólny motyw (żeby nie pisać tego dwa razy)
+# margin(t, r, b, l) -> top, right, bottom, left
+moj_styl <- theme(
+  plot.title = element_text(size = 14, face = "bold", margin = margin(b = 20)), # Odstęp pod tytułem
+  plot.margin = margin(20, 10, 20, 10), # Marginesy dookoła całego wykresu
+  axis.text.x = element_text(angle = 90, size = 8, vjust = 0.5) # Pionowe napisy
+)
+
+# 3. WYKRES 1: PRZED
+p1 <- vis_dat(dane_raw) +
+  labs(title = "1. Dane surowe (Tekst = Czerwony)") +
+  moj_styl
+
+# 4. TRANSFORMACJA
+dane_cleaned <- dane_raw %>%
+  mutate(
+    across(where(is.logical), as.integer), 
+    across(where(is.character), ~as.numeric(as.factor(.)))
+  )
+
+# 5. WYKRES 2: PO
+p2 <- vis_dat(dane_cleaned) +
+  labs(title = "2. Dane po transformacji (Liczby = Zielony/Niebieski)") +
+  moj_styl
+
+# 6. Wyświetlenie z większymi odstępami
+grid.arrange(p1, p2, ncol = 1)
+```
+
+
+### 2.5 Segmentacja ofert (Klastrowanie)
+
+W celu głębszego zrozumienia rynku, zamiast analizować każde mieszkanie z osobna, pogrupujemy je w podobne do siebie segmenty. Wykorzystamy algorytm **K-Means**.
+
+#### Wybór optymalnej liczby grup
+
+Metoda "Silhouette" wskazała, że najbardziej optymalnym podziałem zbioru jest podział na **2 klastry** (najwyższa wartość na wykresie). Oznacza to, że rynek dzieli się naturalnie na dwie wyraźne kategorie ofert.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+library(cluster)
+library(factoextra)
+library(dplyr)
+
+# 1. Wybór zmiennych (bez id i kategorii tekstowych)
+dane_do_klastrowania <- dane_cleaned %>%
+  select(price, squareMeters, rooms, centreDistance, buildYear) %>%
+  na.omit()
+
+# 2. Skalowanie
+dane_scaled <- scale(dane_do_klastrowania)
+
+# 3. Wykres (Ten, który już masz - potwierdza k=2)
+fviz_nbclust(dane_scaled, kmeans, method = "silhouette") +
+  labs(title = "Optymalna liczba klastrów (Metoda Silhouette)")
+
+
+```
+
+####  Wizualizacja segmentów (Cluster Plot)
+Dokonujemy podziału rynku na 2 główne segmenty. Poniższy wykres pokazuje, jak te dwie grupy są odseparowane od siebie w przestrzeni cech.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+set.seed(123)
+
+# UWAGA: Tutaj zmieniliśmy centers = 2 (zgodnie z Twoim wykresem)
+km_res <- kmeans(dane_scaled, centers = 2, nstart = 25)
+
+# Wizualizacja
+fviz_cluster(km_res, data = dane_scaled,
+             palette = "jco",
+             ggtheme = theme_minimal(),
+             geom = "point",
+             ellipse.type = "convex",
+             main = "Podział rynku na 2 segmenty")
+```
+
+#### Charakterystyka grup (Profilowanie)
+Aby zrozumieć, czym różnią się te dwie grupy ( "Mieszkanie tanie" vs "drogie"), spójrzmy na średnie wartości.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Łączymy wyniki z danymi
+dane_z_klastrami <- dane_do_klastrowania %>%
+  mutate(Cluster = as.factor(km_res$cluster))
+
+# Liczymy średnie
+statystyki <- dane_z_klastrami %>%
+  group_by(Cluster) %>%
+  summarise(
+    Liczba_Ofert = n(),
+    Cena_Srednia = round(mean(price), 0),
+    Metraz_Sredni = round(mean(squareMeters), 1),
+    Pokoje_Srednie = round(mean(rooms), 1),
+    Odleglosc_Centrum = round(mean(centreDistance), 2),
+    Rok_Budowy = round(mean(buildYear), 0)
+  )
+
+knitr::kable(statystyki, caption = "Porównanie parametrów dla 2 segmentów")
+```
+
+**Wnioski z segmentacji rynku:**
+
+Algorytm K-Means wyraźnie podzielił rynek na dwie odrębne kategorie, co ma kluczowe znaczenie dla strategii biznesowej i wyceny:
+
+1.  **Segment 1: "Premium / Duży Metraż" (Klaster 1)**
+    * Stanowi mniejszą część rynku (ok. 18% ofert).
+    * Charakteryzuje się **dużą powierzchnią** (średnio 93 m²) i **liczbą pokoi** (blisko 4).
+    * Są to nieruchomości znacznie droższe (średnia cena pow. 7500 jednostek walutowych), celujące w klienta zamożnego lub duże rodziny.
+    * Co ciekawe, średni rok budowy (1992) jest niższy niż w drugim segmencie, co może sugerować, że do tej grupy trafiają też starsze, przestronne mieszkania w kamienicach lub starsze budownictwo wielorodzinne.
+
+2.  **Segment 2: "Standard / Inwestycyjny" (Klaster 2)**
+    * Dominuje na rynku (ponad 80% ofert).
+    * To typowe mieszkania dwupokojowe o powierzchni ok. 46 m².
+    * Średnia cena (ok. 3000) jest ponad dwukrotnie niższa niż w segmencie premium.
+    * Są to mieszkania nowsze (średni rok 2000), co idealnie wpisuje się w profil popularnych mieszkań deweloperskich lub lokali pod wynajem ("kawalerki" i "dwójki").
+
 
 
 
