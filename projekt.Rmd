@@ -201,16 +201,6 @@ table(dane_temp$condition)
 table(dane_temp$hasElevator)
 ```
 
-### 2.4 Data Cleansing (Transformacja zmiennych)
-
-Na tym etapie przygotowujemy dane do modelowania. Większość algorytmów uczenia maszynowego nie potrafi przetwarzać surowego tekstu (np. "winda: tak", "materiał: cegła"). Konieczna jest konwersja zmiennych kategorycznych (jakościowych) na format numeryczny.
-
-Poniższe wykresy obrazują ten proces transformacji.
-
-#### Wizualizacja przed i po transformacji
-
-Pierwszy wykres pokazuje surowy zbiór danych. Kolor **czerwony/różowy** oznacza zmienne tekstowe (`character`), które są niezrozumiałe dla modelu matematycznego.
-Drugi wykres pokazuje ten sam zbiór po zastosowaniu funkcji czyszczącej. Wszystkie zmienne zostały przekonwertowane na **typy numeryczne (zielony/niebieski)**, co oznacza pełną gotowość do analizy.
 
 ### 2.4 Data Cleansing (Transformacja zmiennych)
 
