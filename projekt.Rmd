@@ -510,3 +510,55 @@ corrplot(M, method = "color", type = "upper",
 
 Analiza współczynników korelacji potwierdza, że powierzchnia mieszkania oraz liczba pokoi są najsilniejszymi stymulantami ceny całkowitej, wykazując silny związek dodatni. Z kolei odległość od centrum miasta wykazuje wyraźną korelację ujemną, co oznacza, że wraz ze wzrostem dystansu od serca miasta ceny najmu tendencyjnie spadają. Pozostałe zmienne, takie jak rok budowy czy liczba punktów użyteczności publicznej, mają mniejszy, ale zauważalny wpływ, co sugeruje, że rynek wycenia nieruchomości wielokryterialnie, biorąc pod uwagę zarówno parametry techniczne, jak i lokalizacyjne.
 
+## 5. Wnioskowanie statystyczne
+
+W tej sekcji przejdziemy od opisu danych do weryfikacji hipotez. Sprawdzimy, czy obserwowane na wykresach różnice są istotne statystycznie oraz które parametry mieszkania mają realny wpływ na jego cenę.
+
+### 5.1 Badanie normalności rozkładu
+
+Większość klasycznych testów statystycznych zakłada, że dane mają rozkład normalny. Sprawdzimy to dla zmiennej ceny całkowitej (`price`). Ze względu na dużą liczbę obserwacji, zamiast testu Shapiro-Wilka (który jest bardzo czuły przy dużych próbach), wykorzystamy wizualizację gęstości oraz wykres kwantylowy (Q-Q plot).
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+library(ggplot2)
+library(ggpubr)
+
+# Wykres gęstości z nałożoną krzywą normalną
+p1 <- ggplot(completed_data, aes(x = price)) +
+  geom_density(fill = "#69b3a2", alpha = 0.5) +
+  stat_function(fun = dnorm, args = list(mean = mean(completed_data$price), sd = sd(completed_data$price)), 
+                color = "red", size = 1) +
+  labs(title = "Rozkład cen (Gęstość vs Krzywa Normalna)", x = "Cena", y = "Gęstość") +
+  theme_minimal()
+
+# Wykres Q-Q
+p2 <- ggqqplot(completed_data$price, title = "Wykres Q-Q dla ceny")
+
+library(patchwork)
+p1 + p2
+```
+**Interpretacja**
+Wykresy wyraźnie pokazują, że rozkład ceny odbiega od normalnego (jest prawostronnie skośny – mamy wiele "tanich" mieszkań i długi ogon ofert luksusowych). W związku z tym w dalszych testach będziemy stosować metody nieparametryczne lub opierać się na dużym rozmiarze próby.
+### 5.2 Test istotności różnic (Kruskal-Wallis)
+W sekcji 3.1 widzieliśmy różnice w cenach zależnie od rodzaju zabudowy (type). Teraz sprawdzimy, czy te różnice są istotne statystycznie. Użyjemy testu Kruskala-Wallisa (nieparametryczna alternatywa dla ANOVA).
+
+Hipoteza H0: Średnie rangi cen we wszystkich typach budynków są takie same. Hipoteza H1: Przynajmniej jeden typ budynku różni się istotnie ceną od pozostałych.
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+test_kw <- kruskal.test(price ~ type, data = completed_data)
+test_kw
+```
+**Interpretacja** 
+Ponieważ wartość $p-value$ jest ekstremalnie niska (poniżej 0.05), odrzucamy hipotezę zerową. Rodzaj zabudowy ma statystycznie istotny wpływ na cenę najmu.
+### 5.3 Modelowanie regresji liniowej
+Sprawdzimy, które zmienne najlepiej przewidują cenę. Model regresji pozwoli nam określić siłę wpływu poszczególnych cech (np. metrażu czy odległości od centrum) na końcowy koszt.
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+library(broom)
+
+# Budowa modelu
+model <- lm(price ~ squareMeters + rooms + centreDistance + buildYear + hasElevator, data = completed_data)
+
+# Wyniki modelu w tabeli
+model_results <- tidy(model)
+knitr::kable(model_results, digits = 3, caption = "Wyniki modelu regresji liniowej")
+```
+**Wnioski z modelu**
+Każdy dodatkowy metr kwadratowy powierzchni zwiększa cenę średnio o r round(model_results$estimate[2], 2) PLN.Każdy kilometr od centrum obniża cenę średnio o r abs(round(model_results$estimate[4], 2)) PLN.Wszystkie wybrane zmienne są istotne statystycznie ($p < 0.05$).
