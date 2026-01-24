@@ -537,8 +537,11 @@ library(patchwork)
 p1 + p2
 ```
 **Interpretacja**
+
 Wykresy wyraźnie pokazują, że rozkład ceny odbiega od normalnego (jest prawostronnie skośny – mamy wiele "tanich" mieszkań i długi ogon ofert luksusowych). W związku z tym w dalszych testach będziemy stosować metody nieparametryczne lub opierać się na dużym rozmiarze próby.
+
 ### 5.2 Test istotności różnic (Kruskal-Wallis)
+
 W sekcji 3.1 widzieliśmy różnice w cenach zależnie od rodzaju zabudowy (type). Teraz sprawdzimy, czy te różnice są istotne statystycznie. Użyjemy testu Kruskala-Wallisa (nieparametryczna alternatywa dla ANOVA).
 
 Hipoteza H0: Średnie rangi cen we wszystkich typach budynków są takie same. Hipoteza H1: Przynajmniej jeden typ budynku różni się istotnie ceną od pozostałych.
@@ -546,9 +549,12 @@ Hipoteza H0: Średnie rangi cen we wszystkich typach budynków są takie same. H
 test_kw <- kruskal.test(price ~ type, data = completed_data)
 test_kw
 ```
-**Interpretacja** 
+**Interpretacja:** 
+
 Ponieważ wartość $p-value$ jest ekstremalnie niska (poniżej 0.05), odrzucamy hipotezę zerową. Rodzaj zabudowy ma statystycznie istotny wpływ na cenę najmu.
+
 ### 5.3 Modelowanie regresji liniowej
+
 Sprawdzimy, które zmienne najlepiej przewidują cenę. Model regresji pozwoli nam określić siłę wpływu poszczególnych cech (np. metrażu czy odległości od centrum) na końcowy koszt.
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
 library(broom)
@@ -561,4 +567,15 @@ model_results <- tidy(model)
 knitr::kable(model_results, digits = 3, caption = "Wyniki modelu regresji liniowej")
 ```
 **Wnioski z modelu**
-Każdy dodatkowy metr kwadratowy powierzchni zwiększa cenę średnio o r round(model_results$estimate[2], 2) PLN.Każdy kilometr od centrum obniża cenę średnio o r abs(round(model_results$estimate[4], 2)) PLN.Wszystkie wybrane zmienne są istotne statystycznie ($p < 0.05$).
+
+Powierzchnia (squareMeters): Jest najsilniejszym predyktorem. Każdy dodatkowy metr kwadratowy powierzchni zwiększa cenę mieszkania średnio o 87 zł przy założeniu, że pozostałe czynniki pozostają bez zmian. Lokalizacja (centreDistance): Odległość od centrum ma istotny wpływ ujemny. Statystycznie każdy kilometr dalej od serca miasta powoduje spadek ceny najmu średnio o 31 zł. Liczba pokoi (rooms): Dodatkowy pokój (przy tym samym metrażu) paradoksalnie może wpływać na cenę w różny sposób, ale w naszym modelu każda kolejna jednostka koryguje cenę o -232. Obecność windy w budynku podnosi prestiż i wygodę, co przekłada się na wzrost ceny o średnio 652 zł. Brak windy jest nie istotny statystycznie tak samo jak rok wybudowania mieszkania.
+
+### 6. Podsumowanie i wnioski końcowe
+
+Przeprowadzona analiza 8845 ofert mieszkań pozwoliła na kompleksowe zrozumienie struktury polskiego rynku najmu w 2024 roku. Kluczowe wnioski: 
+
+Segmentacja rynku: Rynek nie jest jednolity. Wyodrębniliśmy dwa główne segmenty: masowy (inwestycyjny), skupiony na mieszkaniach 40-50 $m^2$, oraz segment premium, obejmujący duże apartamenty, których cena jest kształtowana przez inne czynniki niż w przypadku mieszkań standardowych.
+
+Determinanty ceny: Najsilniejszymi czynnikami wpływającymi na koszt najmu są metraż oraz lokalizacja (odległość od centrum). Co ciekawe, model regresji potwierdził, że nawet przy uwzględnieniu metrażu, standard budynku (np. obecność windy) wnosi istotną wartość dodaną do ceny.
+
+Jakość danych: Dzięki zastosowaniu zaawansowanej imputacji MICE, udało się zachować pełną moc zbioru danych bez konieczności usuwania niekompletnych rekordów, co pozwoliło na rzetelne wyciągnięcie wniosków z niemal 9 tysięcy obserwacji.Praktyczne zastosowanie: Model regresji opracowany w projekcie może służyć jako wstępne narzędzie do szacowania "sprawiedliwej" ceny najmu dla nowych ofert wchodzących na rynek.
