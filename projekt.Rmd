@@ -97,7 +97,7 @@ invisible(md.pattern(dane, rotate.names = TRUE))
 
 Uzupełnieniem powyższej analizy jest wykres gg_miss_upset (tzw. Upset Plot). Pionowe słupki pokazują liczebność poszczególnych kombinacji brakujących zmiennych. Pozwala to szybko zidentyfikować najczęstsze "scenariusze" braków danych.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
 gg_miss_upset(dane, nsets = 10, nintersects = 10)
 ```
 
@@ -213,7 +213,7 @@ Poniższe wykresy obrazują ten proces transformacji.
 Pierwszy wykres pokazuje surowy zbiór danych. Kolor **czerwony/różowy** oznacza zmienne tekstowe (`character`), które są niezrozumiałe dla modelu matematycznego.
 Drugi wykres pokazuje ten sam zbiór po zastosowaniu funkcji czyszczącej. Wszystkie zmienne zostały przekonwertowane na **typy numeryczne (zielony/niebieski)**, co oznacza pełną gotowość do analizy.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=14}
+```{r echo=FALSE, fig.height=14, fig.width=12, message=FALSE, warning=FALSE}
 library(visdat)
 library(dplyr)
 library(gridExtra)
@@ -338,6 +338,175 @@ Algorytm K-Means wyraźnie podzielił rynek na dwie odrębne kategorie, co ma kl
     * Średnia cena (ok. 3000) jest ponad dwukrotnie niższa niż w segmencie premium.
     * Są to mieszkania nowsze (średni rok 2000), co idealnie wpisuje się w profil popularnych mieszkań deweloperskich lub lokali pod wynajem ("kawalerki" i "dwójki").
 
+## 3. Wizualizacja danych
 
+### 3.1 Wykresy pudełkowe
 
+Wykresy pudełkowe wykorzstane zostały do  graficznego przedstawienia analizy kluczowych czynników wpływających na zróżnicowanie stawek na rynku nieruchomości. Poprzez zestawienie danych w formie czytelnych wykresów, zidentyfikowane zostały zależności między ceną a standardem, lokalizacją oraz parametrami technicznymi lokali. Uzyskamy dzięki nim lepsze zrozumienie struktury rynku i wskazanie segmentów generujących najwyższe koszty najmu.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+### 3.1 Analiza zróżnicowania cen - Wykresy Pudełkowe
+
+# Upewniamy się, że biblioteki są załadowane
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+
+# 1. Obliczamy cenę za m2, jeśli jeszcze jej nie ma
+plot_data <- completed_data %>%
+  mutate(price_per_m2 = price / squareMeters)
+
+# 2. Wykres A: Cena za m2 a Rodzaj Zabudowy
+# Używamy as.factor(), bo po kroku 2.4 'type' może być liczbą (1, 2, 3...)
+p_type <- ggplot(plot_data, aes(x = reorder(as.factor(type), price_per_m2, FUN = median), 
+                                y = price_per_m2, fill = as.factor(type))) +
+  geom_boxplot(alpha = 0.7, outlier.colour = "red", outlier.shape = 1) +
+  coord_flip() +
+  scale_fill_viridis_d(option = "viridis") + # Bezpieczna paleta dla numerów
+  theme_minimal() +
+  labs(title = "Cena za m2 a rodzaj budynku (kategorie)",
+       x = "Kod typu budynku",
+       y = "Cena za metr (PLN)") +
+  theme(legend.position = "none")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# 3. Wykres B: Cena całkowita a liczba pokoi
+p_rooms <- ggplot(plot_data, aes(x = as.factor(rooms), y = price, fill = as.factor(rooms))) +
+  geom_boxplot(alpha = 0.7) +
+  scale_fill_viridis_d(option = "magma") +
+  theme_minimal() +
+  labs(title = "Całkowity koszt najmu a liczba pokoi",
+       x = "Liczba pokoi",
+       y = "Cena całkowita (PLN)") +
+  theme(legend.position = "none")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# 4. Wykres C: Cena za m2 a Stan Mieszkania (Condition)
+p_cond <- ggplot(plot_data, aes(x = as.factor(condition), y = price_per_m2, fill = as.factor(condition))) +
+  geom_boxplot(alpha = 0.7) +
+  scale_fill_brewer(palette = "Pastel1") +
+  theme_minimal() +
+  labs(title = "Cena za m2 a stan techniczny",
+       x = "Kod stanu",
+       y = "Cena za metr (PLN)") +
+  theme(legend.position = "none")
+
+# Łączenie wykresów (wymaga biblioteki patchwork)
+(p_type | p_cond) / p_rooms
+```
+
+**Interpretacja wykresów**
+
+Analiza wykresów pudełkowych pokazuje, że rodzaj zabudowy istotnie różnicuje ceny metra kwadratowego – apartamentowce są najdroższym segmentem, podczas gdy kamienice charakteryzują się największą liczbą ofert luksusowych, znacznie wykraczających poza średnią rynkową. Całkowity koszt najmu rośnie wraz z liczbą pokoi, jednak przy większych metrażach obserwujemy znacznie większą rozpiętość cenową i mniejszą przewidywalność kosztów niż w przypadku małych mieszkań. Kluczowym czynnikiem cenotwórczym pozostaje stan techniczny, który tworzy wyraźną strukturę wzrostową, choć atrakcyjna lokalizacja potrafi czasem zrównać cenę lokali o niższym standardzie z mieszkaniami typu premium.
+
+### 3.2 Wykresy słupkowe
+
+Wykresy słupkowe posłużyły do graficznej analizy ilościowej strukturze ofert oraz zestawieniu średnich wartości cenowych w kluczowych kategoriach. Umożliwi to precyzyjne wskazanie, typów nieruchomości dominujących w bazie danych oraz jak rozkładu kosztów najmu w zależności od wielkości mieszkania.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+
+# 1. Przygotowanie danych - zabezpieczamy typy numeryczne
+df_bar1 <- completed_data %>%
+  group_by(rooms) %>%
+  summarise(count = n())
+
+df_bar2 <- completed_data %>%
+  group_by(type) %>%
+  summarise(mean_val = mean(as.numeric(price) / as.numeric(squareMeters), na.rm = TRUE))
+
+# 2. Wykres A: Struktura ofert
+p_count <- ggplot(df_bar1, aes(x = as.factor(rooms), y = count, fill = as.factor(rooms))) +
+  geom_col(alpha = 0.8) +
+  geom_text(aes(label = count), vjust = -0.5, size = 3) +
+  scale_fill_viridis_d(option = "mako") +
+  theme_minimal() +
+  labs(title = "Liczba ofert wg pokoi", x = "Pokoje", y = "Liczba") +
+  theme(legend.position = "none")
+
+# 3. Wykres B: Średnia cena za metr
+p_mean <- ggplot(df_bar2, aes(x = reorder(as.factor(type), mean_val), y = mean_val, fill = as.factor(type))) +
+  geom_col(alpha = 0.8) +
+  coord_flip() +
+  scale_fill_brewer(palette = "Blues") +
+  theme_minimal() +
+  labs(title = "Średnia cena za m2", x = "Typ budynku (kod)", y = "PLN/m2") +
+  theme(legend.position = "none")
+
+# Łączenie wykresów - jeśli tu jest błąd, wpisz install.packages("patchwork")
+p_count + p_mean
+```
+**Interpretacja wykresów**
+
+Analiza struktury ogłoszeń wykazuje wyraźną dominację mieszkań dwu- i trzypokojowych, co sugeruje, że rynek jest zorientowany głównie na segment popularny i potrzeby rodzin. Zestawienie średnich cen potwierdza, że typ zabudowy jest silnym predyktorem kosztów – nowoczesne apartamentowce generują najwyższe stawki za metr kwadratowy, podczas gdy duży wolumen ofert w blokach mieszkalnych utrzymuje ceny na bardziej stabilnym, niższym poziomie. Wyraźne różnice między kategoriami wskazują, że standard budynku jest dla najemców kluczowym czynnikiem przy akceptacji wyższych stawek czynszu.
+
+## 4. Analiza opisowa
+
+### 4.1 Statystyki opisowe
+
+Statystyki opisowe stanowią fundament analizy, pozwalając na liczbowe podsumowanie tendencji centralnej oraz rozproszenia kluczowych cech rynkowych. Dzięki nim możliwe jest precyzyjne określenie profilu typowej oferty oraz zidentyfikowanie skali zróżnicowania cenowego w badanym zbiorze danych.
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+# 1. Obliczamy statystyki w sposób bezpieczny
+statystyki_tabela <- completed_data %>%
+  # Wybieramy tylko te kolumny, które nas interesują
+  select(price, squareMeters, rooms, centreDistance) %>%
+  # Przekształcamy do formatu długiego, aby łatwo policzyć wszystko na raz
+  pivot_longer(everything(), names_to = "Zmienna", values_to = "Wartość") %>%
+  group_by(Zmienna) %>%
+  summarise(
+    Min = min(Wartość, na.rm = TRUE),
+    Mediana = median(Wartość, na.rm = TRUE),
+    Średnia = mean(Wartość, na.rm = TRUE),
+    Max = max(Wartość, na.rm = TRUE),
+    `Odch. std.` = sd(Wartość, na.rm = TRUE)
+  ) %>%
+  # Zaokrąglamy wyniki dla estetyki
+  mutate(across(where(is.numeric), ~round(., 2)))
+
+# 2. Wyświetlenie tabeli
+kable(statystyki_tabela, caption = "Tabela: Podsumowanie statystyczne kluczowych parametrów")
+```
+
+**Interpretacja statystyk opisowych**
+
+Zestawienie liczbowe ujawnia istotne zróżnicowanie stawek najmu, gdzie wyraźna różnica między średnią a medianą cen sygnalizuje obecność ofert luksusowych zawyżających ogólny wynik. Wysokie odchylenie standardowe w relacji do ceny sugeruje, że rynek nie jest jednolity, a na ostateczny koszt silnie wpływają cechy specyficzne lokali. Przeciętny metraż i odległość od centrum wskazują na dominację standardowych mieszkań miejskich, przy czym szeroki zakres od wartości minimalnych do maksymalnych potwierdza dużą rozpiętość standardu dostępnych nieruchomości.
+
+### 4.2 Korelacja
+
+Analiza korelacji pozwala zrozumieć, które cechy nieruchomości mają najsilniejszy związek z jej ceną oraz jak poszczególne parametry wpływają na siebie nawzajem. Wykorzystanie macierzy korelacji ułatwia identyfikację kluczowych czynników cenotwórczych, co jest niezbędne do budowy rzetelnego modelu wyceny.
+
+```{r}
+library(corrplot)
+library(dplyr)
+
+# 1. Wybieramy tylko zmienne numeryczne do analizy
+dane_kor <- completed_data %>%
+  select(price, squareMeters, rooms, centreDistance, buildYear, poiCount) %>%
+  # Zmieniamy nazwy na polskie dla lepszej czytelności wykresu
+  rename(Cena = price, Metraż = squareMeters, Pokoje = rooms, 
+         `Dystans Centrum` = centreDistance, `Rok Budowy` = buildYear, `Liczba POI` = poiCount)
+
+# 2. Obliczamy macierz korelacji
+M <- cor(dane_kor, use = "complete.obs")
+
+# 3. Rysujemy macierz
+corrplot(M, method = "color", type = "upper", 
+         addCoef.col = "black", 
+         tl.col = "black", tl.srt = 45,
+         diag = FALSE,
+         title = "\n\nMacierz korelacji czynników rynkowych",
+         mar = c(0,0,2,0))
+```
+**Interpretacja współczynników korelacji**
+
+Analiza współczynników korelacji potwierdza, że powierzchnia mieszkania oraz liczba pokoi są najsilniejszymi stymulantami ceny całkowitej, wykazując silny związek dodatni. Z kolei odległość od centrum miasta wykazuje wyraźną korelację ujemną, co oznacza, że wraz ze wzrostem dystansu od serca miasta ceny najmu tendencyjnie spadają. Pozostałe zmienne, takie jak rok budowy czy liczba punktów użyteczności publicznej, mają mniejszy, ale zauważalny wpływ, co sugeruje, że rynek wycenia nieruchomości wielokryterialnie, biorąc pod uwagę zarówno parametry techniczne, jak i lokalizacyjne.
 
