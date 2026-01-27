@@ -15,11 +15,7 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 
 ### 1.1 Mieszkania
 
-Rynek nieruchomości to jeden z kluczowych sektorów gospodarki, w którym precyzyjna analiza danych ma bezpośrednie przełożenie na trafność decyzji inwestycyjnych. Ten zestaw danych zapewni Ci doskonały przedsmak pracy analityka rynku mieszkaniowego. Pozwoli zrozumieć, z jakimi wyzwaniami mierzą się rzeczoznawcy i inwestorzy, oraz zbadać, jakie strategie wyceny są najskuteczniejsze.
-
-Dzięki zgromadzonym informacjom dowiesz się, jak na atrakcyjność oferty wpływają zróżnicowane zmienne – od parametrów technicznych (rok budowy, piętro), przez lokalizację geograficzną, aż po dostęp do infrastruktury miejskiej (odległość od centrum, szkół czy przychodni).
-
-Jest to w głównej mierze problem **regresji** (przewidywanie ceny) oraz zaawansowanej **eksploracji danych**. Zbiór składa się z **8845 obserwacji** (wierszy) opisanych za pomocą **27 zmiennych** (kolumn).
+Rynek nieruchomości, a w szczególności sektor najmu mieszkań, stanowi jeden z najbardziej dynamicznych elementów współczesnej gospodarki. Wysoki popyt na lokale mieszkalne w dużych aglomeracjach sprawia, że ceny podlegają ciągłym wahaniom, zależnym od szeregu czynników – od lokalizacji i metrażu, po standard wykończenia czy dostępność udogodnień takich jak winda czy parking. Niniejszy raport skupia się na wielowymiarowej analizie danych rynkowych, wykorzystując zaawansowane metody statystyczne do zidentyfikowania kluczowych determinantów ceny oraz stworzenia modelu pozwalającego na rzetelne szacowanie kosztów najmu w oparciu o tysiące rzeczywistych ofert.
 
 ### 1.2 Opis bazy danych
 
@@ -53,9 +49,12 @@ Baza składa się z **27 kolumn** (cech) opisujących **8845 ofert** mieszkań. 
 26. **hasStorageRoom** - informacja, czy do mieszkania przynależy komórka lokatorska (tak/nie).
 27. **price** - cena całkowita nieruchomości (zmienna celu, którą będziemy przewidywać/analizo
 
+### 1.3 Cel analizy 
+Naszym celem jest nie tylko identyfikacja głównych czynników wpływających na ceny najmu, lecz także wydobycie istotnych trendów rynkowych, które pozwolą nam doskonalić metody prognozowania i wyceny, zapewniając zainteresowanym stronom bardziej precyzyjne i dopasowane rozwiązania.
+
 ## 2. Data Wrangling, Cleasing
 
-ramach przygotowania zbioru do analizy przeprowadzono dwa kluczowe procesy:
+W ramach przygotowania zbioru do analizy przeprowadzono dwa kluczowe procesy:
 
 -   **Data Wrangling** – polega na przekształceniu, reorganizacji i mapowaniu surowych danych do formatu, który jest technicznie gotowy do analizy (np. zmiana typów zmiennych).
 -   **Data Cleansing** (Czyszczenie danych) – to identyfikacja i eliminacja błędów, niespójności oraz brakujących wartości.
@@ -83,6 +82,10 @@ vis_miss(dane, warn_large_data = FALSE) +
   theme(axis.text.x = element_text(angle = 90))
 ```
 
+**Interpretacja Mapy Braków Danych**
+
+Wykres przedstawia rozkład brakujących wartości w zbiorze danych liczącym ok. 8000 obserwacji. Ogólny stan kompletności danych jest bardzo wysoki, ponieważ braki stanowią jedynie 1,5% całego zbioru.
+
 #### Analiza wzorców (Pattern Analysis)
 Aby dokładniej zrozumieć strukturę braków, stosujemy funkcję md.pattern. Wykres ten (w kolorach niebieskim i różowym) pokazuje kombinacje braków.
 
@@ -91,46 +94,62 @@ Kolor niebieski: Dane dostępne.
 Kolor różowy: Brak danych. Wizualizacja ta pomaga odpowiedzieć na pytanie: "Czy jeśli brakuje nam informacji o roku budowy, to zazwyczaj brakuje też informacji o piętrze?".
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
-# invisible() ukrywa tabelę liczbową, zostawiając sam wykres
 invisible(md.pattern(dane, rotate.names = TRUE))
 ```
+**Interpretacja md.pattern**
 
+Zbiór danych wykazuje znaczące braki w informacjach o roku budowy (25%) oraz piętrze (12%).
 Uzupełnieniem powyższej analizy jest wykres gg_miss_upset (tzw. Upset Plot). Pionowe słupki pokazują liczebność poszczególnych kombinacji brakujących zmiennych. Pozwala to szybko zidentyfikować najczęstsze "scenariusze" braków danych.
 
 ```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
 gg_miss_upset(dane, nsets = 10, nintersects = 10)
 ```
+**Interpretacja Upset Plot**
+
+Wykres wskazuje, że zdecydowanie najczęstszym scenariuszem braków jest brak wyłącznie roku budowy, co dotyczy aż 1906 rekordów. Kolejnym istotnym wzorcem jest brak samej informacji o piętrze (678 przypadków), podczas gdy współwystępowanie obu tych braków jednocześnie zdarza się znacznie rzadziej, bo w 194 ogłoszeniach. Pozostałe kombinacje brakujących danych, w tym odległości do punktów użyteczności publicznej (POI), mają charakter marginalny i występują incydentalnie.
 
 #### Zależność braków od zmiennych kategorycznych
 Poniższa mapa ciepła (gg_miss_fct) sprawdza, czy występowanie braków danych w zmiennych numerycznych jest skorelowane z obecnością windy w budynku (hasElevator). Pozwala to wykryć systematyczne błędy w zbieraniu danych (np. czy dla budynków bez windy częściej brakuje pewnych informacji).
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
-gg_miss_fct(x = dane, fct = hasElevator) + 
-  labs(title = "Rozkład braków danych w podziale na dostępność windy")
+library(patchwork)
+library(naniar)
+library(ggplot2)
+library(dplyr)
+
+
+zmienne_grupy <- c("city", "type", "hasElevator", "condition")
+dane_sub <- dane %>% 
+  select(all_of(zmienne_grupy), where(~any(is.na(.))))
+
+
+moj_styl <- theme(
+  axis.text.y = element_text(size = 8), 
+  axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+  plot.title = element_text(size = 10, face = "bold"),
+  legend.position = "none"
+)
+
+
+p1 <- gg_miss_fct(x = dane_sub, fct = city) + labs(title = "1. Miasto", y = "Zmienne", x = "") + moj_styl
+p2 <- gg_miss_fct(x = dane_sub, fct = type) + labs(title = "2. Typ", y = "", x = "") + moj_styl + theme(axis.text.y = element_blank())
+p3 <- gg_miss_fct(x = dane_sub, fct = hasElevator) + labs(title = "3. Winda", y = "Zmienne", x = "") + moj_styl
+p4 <- gg_miss_fct(x = dane_sub, fct = condition) + labs(title = "4. Stan", y = "", x = "") + moj_styl + theme(axis.text.y = element_blank())
+
+
+(p1 + p2) / (p3 + p4) + 
+  plot_layout(guides = "collect") +
+  plot_annotation(title = "Analiza braków: Segmentacja kluczowych zmiennych") & 
+  theme(legend.position = "bottom")
 ```
+**Interpretacja mapy ciepła braków danych**
+
+Zestawienie pokazuje, że braki danych mają charakter systematyczny i są silnie skorelowane z konkretnymi cechami nieruchomości, takimi jak lokalizacja czy rodzaj zabudowy. Największa koncentracja luk występuje w przypadku roku budowy (buildYear), szczególnie w starszych kamienicach oraz budynkach pozbawionych windy. Pozostałe parametry techniczne zachowują wysoką kompletność we wszystkich segmentach, co potwierdza, że zbiór jest solidną bazą do dalszej analizy po uzupełnieniu kluczowych braków.
 
 #### Imputacja danych (MICE)
-Usuwanie rekordów z brakami danych (tzw. listwise deletion) wiązałoby się ze znaczną utratą informacji, co mogłoby obciążyć model. Zamiast tego zastosowano metodę wielokrotnej imputacji MICE (Multivariate Imputation by Chained Equations) z algorytmem PMM (Predictive Mean Matching).
+Usuwanie rekordów z brakami danych wiązałoby się ze znaczną utratą informacji, co mogłoby obciążyć model. Dlatego po konsultacji z Panem Doktorem zdecydowaliśmy się tego nie robić.
 
-Metoda ta uzupełnia braki, "pożyczając" wartości od innych, statystycznie podobnych mieszkań w zbiorze, co pozwala zachować naturalny rozkład danych i wariancję.
-
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
-# Przygotowanie do imputacji (usunięcie kolumny ID, która nie wnosi wartości analitycznej)
-dane_do_imputacji <- dane %>% select(-id)
-
-# Imputacja algorytmem PMM (printFlag=FALSE ukrywa logi techniczne procesu)
-imputed <- mice(dane_do_imputacji, m = 5, method = 'pmm', seed = 123, printFlag = FALSE)
-completed_data <- complete(imputed, 1)
-```
-#### Weryfikacja po imputacji
-Poniższy wykres potwierdza skuteczność procesu imputacji. Brak widocznych pasków dla zmiennych (lub wartości 0%) oznacza, że zbiór danych jest teraz kompletny i technicznie gotowy do dalszego modelowania.
-
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
-gg_miss_var(completed_data, show_pct = TRUE) + 
-  labs(title = "Weryfikacja: Procent braków danych po imputacji")
-```
-
-### 2.2 Struktura danych i statystyki opisowe
+### 2.2 Struktura danych
 
 W tym kroku przyglądamy się technicznej stronie zbioru danych. Sprawdzamy typy zmiennych (czy liczby są liczbami, a tekst tekstem), rozkład wartości oraz różnorodność kategorii. Pozwala to wyłapać anomalie, takie jak np. literówki w nazwach miast czy nierealistyczne ceny.
 
@@ -144,25 +163,17 @@ Poniższy wykres (`vis_dat`) to "zdjęcie rentgenowskie" naszego zbioru danych. 
 library(visdat)
 library(dplyr)
 
-# Upewniamy się, że pracujemy na świeżych danych (lub tych po imputacji - zależy od Ciebie)
-# Tutaj wczytuję oryginał dla demonstracji struktury
+
 dane_temp <- read.csv("apartments_rent_pl_2024_06.csv") %>% select(-id)
 
 vis_dat(dane_temp) +
   labs(title = "Struktura typów danych (vis_dat)")
 ```
 
-##### Podstawowe statystyki (Summary)
-Funkcja summary() generuje statystyczny opis każdej zmiennej.
+**Interpretacja wizualizacji typów danych**
 
-Dla zmiennych liczbowych (np. price, squareMeters) widzimy: średnią (Mean), medianę oraz wartości skrajne (Min, Max).
+Wykres vis_dat potwierdza poprawną interpretację typów danych w zbiorze, w którym dominują zmienne numeryczne (kolor niebieski) oraz tekstowe (kolor czerwony). Szare obszary w kolumnach buildYear oraz floor wyraźnie obrazują lokalizację braków danych, co jest w pełni spójne z wynikami uzyskanymi na poprzednich etapach analizy. Taki „rentgen” zbioru pozwala na szybką walidację formatu wszystkich parametrów dla blisko 8000 rekordów przed rozpoczęciem procesów statystycznych.
 
-Pozwala to szybko zauważyć błędy, np. mieszkanie o powierzchni 1 m² lub cenie ujemnej.
-
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-# Wyświetlamy podsumowanie
-summary(dane_temp)
-```
 ##### Analiza unikalnych wartości
 Poniższa tabela pokazuje, ile unikalnych wartości ma każda zmienna.
 
@@ -170,16 +181,16 @@ Zmienne o małej liczbie unikalnych wartości (np. 2-5) to zazwyczaj zmienne kat
 
 Zmienne o dużej liczbie wartości to zmienne ciągłe (np. price, latitude).
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-# Tworzymy ramkę danych z liczbą unikalnych wartości dla każdej kolumny
+
 unikalne_wartosci <- data.frame(
   Zmienna = names(dane_temp),
   Liczba_Unikalnych = sapply(dane_temp, function(x) length(unique(x)))
 )
 
-# Sortujemy dla czytelności (od najmniejszej liczby kategorii)
+
 unikalne_wartosci <- unikalne_wartosci[order(unikalne_wartosci$Liczba_Unikalnych), ]
 
-# Wyświetlamy wynik (używamy knitr::kable dla ładniejszej tabeli w HTML)
+
 knitr::kable(unikalne_wartosci, row.names = FALSE, caption = "Liczba unikalnych wartości w kolumnach")
 ```
 ##### Proporcje dla kluczowych kategorii
@@ -217,12 +228,12 @@ Drugi wykres pokazuje ten sam zbiór po zastosowaniu funkcji czyszczącej. Wszys
 library(visdat)
 library(dplyr)
 library(gridExtra)
-library(ggplot2) # Potrzebne do funkcji margin()
+library(ggplot2) 
 
-# 1. Wczytujemy dane
+
 dane_raw <- read.csv("apartments_rent_pl_2024_06.csv") %>% select(-id)
 
-# 2. Definiujemy wspólny motyw (żeby nie pisać tego dwa razy)
+
 # margin(t, r, b, l) -> top, right, bottom, left
 moj_styl <- theme(
   plot.title = element_text(size = 14, face = "bold", margin = margin(b = 20)), # Odstęp pod tytułem
@@ -230,24 +241,22 @@ moj_styl <- theme(
   axis.text.x = element_text(angle = 90, size = 8, vjust = 0.5) # Pionowe napisy
 )
 
-# 3. WYKRES 1: PRZED
+
 p1 <- vis_dat(dane_raw) +
   labs(title = "1. Dane surowe (Tekst = Czerwony)") +
   moj_styl
 
-# 4. TRANSFORMACJA
 dane_cleaned <- dane_raw %>%
   mutate(
     across(where(is.logical), as.integer), 
     across(where(is.character), ~as.numeric(as.factor(.)))
   )
 
-# 5. WYKRES 2: PO
+
 p2 <- vis_dat(dane_cleaned) +
   labs(title = "2. Dane po transformacji (Liczby = Zielony/Niebieski)") +
   moj_styl
 
-# 6. Wyświetlenie z większymi odstępami
 grid.arrange(p1, p2, ncol = 1)
 ```
 
@@ -265,15 +274,15 @@ library(cluster)
 library(factoextra)
 library(dplyr)
 
-# 1. Wybór zmiennych (bez id i kategorii tekstowych)
+
 dane_do_klastrowania <- dane_cleaned %>%
   select(price, squareMeters, rooms, centreDistance, buildYear) %>%
   na.omit()
 
-# 2. Skalowanie
+
 dane_scaled <- scale(dane_do_klastrowania)
 
-# 3. Wykres (Ten, który już masz - potwierdza k=2)
+
 fviz_nbclust(dane_scaled, kmeans, method = "silhouette") +
   labs(title = "Optymalna liczba klastrów (Metoda Silhouette)")
 
@@ -287,7 +296,7 @@ Dokonujemy podziału rynku na 2 główne segmenty. Poniższy wykres pokazuje, ja
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
 set.seed(123)
 
-# UWAGA: Tutaj zmieniliśmy centers = 2 (zgodnie z Twoim wykresem)
+
 km_res <- kmeans(dane_scaled, centers = 2, nstart = 25)
 
 # Wizualizacja
@@ -303,11 +312,11 @@ fviz_cluster(km_res, data = dane_scaled,
 Aby zrozumieć, czym różnią się te dwie grupy ( "Mieszkanie tanie" vs "drogie"), spójrzmy na średnie wartości.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-# Łączymy wyniki z danymi
+
 dane_z_klastrami <- dane_do_klastrowania %>%
   mutate(Cluster = as.factor(km_res$cluster))
 
-# Liczymy średnie
+
 statystyki <- dane_z_klastrami %>%
   group_by(Cluster) %>%
   summarise(
@@ -353,7 +362,7 @@ library(dplyr)
 library(patchwork)
 
 # 1. Obliczamy cenę za m2, jeśli jeszcze jej nie ma
-plot_data <- completed_data %>%
+plot_data <- dane_temp %>%
   mutate(price_per_m2 = price / squareMeters)
 
 # 2. Wykres A: Cena za m2 a Rodzaj Zabudowy
@@ -411,11 +420,11 @@ library(dplyr)
 library(patchwork)
 
 # 1. Przygotowanie danych - zabezpieczamy typy numeryczne
-df_bar1 <- completed_data %>%
+df_bar1 <- dane_temp %>%
   group_by(rooms) %>%
   summarise(count = n())
 
-df_bar2 <- completed_data %>%
+df_bar2 <- dane_temp %>%
   group_by(type) %>%
   summarise(mean_val = mean(as.numeric(price) / as.numeric(squareMeters), na.rm = TRUE))
 
@@ -456,7 +465,7 @@ library(tidyr)
 library(knitr)
 
 # 1. Obliczamy statystyki w sposób bezpieczny
-statystyki_tabela <- completed_data %>%
+statystyki_tabela <- dane_temp %>%
   # Wybieramy tylko te kolumny, które nas interesują
   select(price, squareMeters, rooms, centreDistance) %>%
   # Przekształcamy do formatu długiego, aby łatwo policzyć wszystko na raz
@@ -489,7 +498,7 @@ library(corrplot)
 library(dplyr)
 
 # 1. Wybieramy tylko zmienne numeryczne do analizy
-dane_kor <- completed_data %>%
+dane_kor <- dane_temp %>%
   select(price, squareMeters, rooms, centreDistance, buildYear, poiCount) %>%
   # Zmieniamy nazwy na polskie dla lepszej czytelności wykresu
   rename(Cena = price, Metraż = squareMeters, Pokoje = rooms, 
@@ -523,15 +532,15 @@ library(ggplot2)
 library(ggpubr)
 
 # Wykres gęstości z nałożoną krzywą normalną
-p1 <- ggplot(completed_data, aes(x = price)) +
+p1 <- ggplot(dane_temp, aes(x = price)) +
   geom_density(fill = "#69b3a2", alpha = 0.5) +
-  stat_function(fun = dnorm, args = list(mean = mean(completed_data$price), sd = sd(completed_data$price)), 
+  stat_function(fun = dnorm, args = list(mean = mean(dane$price), sd = sd(dane$price)), 
                 color = "red", size = 1) +
   labs(title = "Rozkład cen (Gęstość vs Krzywa Normalna)", x = "Cena", y = "Gęstość") +
   theme_minimal()
 
 # Wykres Q-Q
-p2 <- ggqqplot(completed_data$price, title = "Wykres Q-Q dla ceny")
+p2 <- ggqqplot(dane_temp$price, title = "Wykres Q-Q dla ceny")
 
 library(patchwork)
 p1 + p2
@@ -546,7 +555,7 @@ W sekcji 3.1 widzieliśmy różnice w cenach zależnie od rodzaju zabudowy (type
 
 Hipoteza H0: Średnie rangi cen we wszystkich typach budynków są takie same. Hipoteza H1: Przynajmniej jeden typ budynku różni się istotnie ceną od pozostałych.
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
-test_kw <- kruskal.test(price ~ type, data = completed_data)
+test_kw <- kruskal.test(price ~ type, data = dane)
 test_kw
 ```
 **Interpretacja:** 
@@ -560,7 +569,7 @@ Sprawdzimy, które zmienne najlepiej przewidują cenę. Model regresji pozwoli n
 library(broom)
 
 # Budowa modelu
-model <- lm(price ~ squareMeters + rooms + centreDistance + buildYear + hasElevator, data = completed_data)
+model <- lm(price ~ squareMeters + rooms + centreDistance + buildYear + hasElevator, data = dane_temp)
 
 # Wyniki modelu w tabeli
 model_results <- tidy(model)
@@ -570,7 +579,7 @@ knitr::kable(model_results, digits = 3, caption = "Wyniki modelu regresji liniow
 
 Powierzchnia (squareMeters): Jest najsilniejszym predyktorem. Każdy dodatkowy metr kwadratowy powierzchni zwiększa cenę mieszkania średnio o 87 zł przy założeniu, że pozostałe czynniki pozostają bez zmian. Lokalizacja (centreDistance): Odległość od centrum ma istotny wpływ ujemny. Statystycznie każdy kilometr dalej od serca miasta powoduje spadek ceny najmu średnio o 31 zł. Liczba pokoi (rooms): Dodatkowy pokój (przy tym samym metrażu) paradoksalnie może wpływać na cenę w różny sposób, ale w naszym modelu każda kolejna jednostka koryguje cenę o -232. Obecność windy w budynku podnosi prestiż i wygodę, co przekłada się na wzrost ceny o średnio 652 zł. Brak windy jest nie istotny statystycznie tak samo jak rok wybudowania mieszkania.
 
-### 6. Podsumowanie i wnioski końcowe
+## 6. Podsumowanie i wnioski końcowe
 
 Przeprowadzona analiza 8845 ofert mieszkań pozwoliła na kompleksowe zrozumienie struktury polskiego rynku najmu w 2024 roku. Kluczowe wnioski: 
 
